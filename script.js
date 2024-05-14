@@ -33,9 +33,16 @@ function generateSound(frequency, duration) {
         oscillator.type = type;
         oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
 
-        oscillator.connect(audioContext.destination);
+        const gainNode = audioContext.createGain();
+        gainNode.gain.setValueAtTime(1, audioContext.currentTime);
 
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
         oscillator.start();
+
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration / 1000);
+
         setTimeout(() => {
             oscillator.stop();
             resolve();
