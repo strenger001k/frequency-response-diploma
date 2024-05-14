@@ -4,357 +4,67 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
     <title>Frequency Response</title>
 </head>
 <body>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
+    <div class="tabs">
+        <button class="tablink" onclick="openTab(event, 'descriptionTab')">Description</button>
+        <button class="tablink" onclick="openTab(event, 'chartTab')">Chart</button>
+    </div>
 
-        body {
-            font-family: 'Roboto Mono', monospace;
-            margin: 0;
-            padding: 0;
-        }
+    <div id="descriptionTab" class="tabcontent">
+        <h2>Description and Justification</h2>
+        <p>The frequency response is a graphical or numerical representation of the relationship between the amplitude or phase of a signal and its frequency.</p>
+        <p>In audio engineering and acoustics, frequency response is an important tool for measuring and analyzing the behavior of audio systems. It allows engineers and acousticians to understand how a system perceives and transmits sound frequencies under various conditions.</p>
+        <p>The frequency response can be used for:</p>
+        <ul>
+            <li>Evaluating the quality of audio equipment such as speakers, headphones, microphones, and amplifiers.</li>
+            <li>Adjusting acoustic systems to achieve the desired sound balance.</li>
+            <li>Identifying problems with audio signals, such as distortions or frequency areas requiring amplification or attenuation.</li>
+            <li>Evaluating the acoustic properties of spaces, such as reverberation and resonances, and developing appropriate acoustic solutions.</li>
+        </ul>
+        <p>Understanding frequency response helps in creating and fine-tuning audio systems with high precision and sound reproduction quality.</p>
+    </div>
 
-        #chartContainer {
-            width: 100%;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        #chartContainer canvas {
-            width: 100%;
-            margin-bottom: 20px;
-        }
-
-        .form-container {
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
-
-        .form-container label {
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .form-container input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-family: 'Roboto Mono', monospace;
-        }
-
-        #fileName {
-            display: none;
-        }
-
-        .button-container {
-            text-align: center;
-        }
-
-        .button-container button {
-            padding: 10px 20px;
-            font-size: 16px;
-            border: none;
-            border-radius: 4px;
-            background-color: rgba(75, 192, 192, 1);
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin: 0 10px;
-            font-family: 'Roboto Mono', monospace;
-        }
-
-        .button-container button:hover {
-            background-color: rgba(75, 192, 192, 0.8);
-        }
-
-        #saveButton {
-            display: none;
-            padding: 10px 20px;
-            font-size: 16px;
-            border: none;
-            border-radius: 4px;
-            background-color: rgba(75, 192, 192, 1);
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin-bottom: 20px;
-            font-family: 'Roboto Mono', monospace;
-        }
-
-        #saveButton:hover {
-            background-color: rgba(75, 192, 192, 0.8);
-        }     
-    </style>
-    <div id="chartContainer">
-        <div class="form-container">
-            <button id="saveButton">
-                Save Chart
-            </button>
-            <input type="text" id="fileName" placeholder="Enter file name">
-            <label for="startFrequency">Start Frequency (Hz):</label>
-            <input type="number" id="startFrequency" value="60">
-            <label for="endFrequency">End Frequency (Hz):</label>
-            <input type="number" id="endFrequency" value="100">
-            <label for="step">Step:</label>
-            <input type="number" id="step" value="1">
-            <label for="duration">Duration (ms):</label>
-            <input type="number" id="frequencyDuration" name="duration" value="1500">
-            <div class="button-container">
-                <button id="startButton">Start Tests</button>
-                <button id="stopButton">Stop Tests</button>
+    <div id="chartTab" class="tabcontent" style="display:none;">
+        <div id="chartContainer">
+            <div class="form-container">
+                <button id="saveButton">
+                    Save Chart
+                </button>
+                <input type="text" id="fileName" placeholder="Enter file name">
+    
+                <label for="startFrequency">Start Frequency (Hz):</label>
+                <input type="number" id="startFrequency" value="60">
+    
+                <label for="endFrequency">End Frequency (Hz):</label>
+                <input type="number" id="endFrequency" value="100">
+    
+                <label for="step">Step:</label>
+                <input type="number" id="step" value="1">
+    
+                <label for="duration">Duration (ms):</label>
+                <input type="number" id="frequencyDuration" name="duration" value="1500">
+    
+                <label for="signalType">Signal Type:</label>
+                <select id="signalType">
+                  <option value="sine">Sine Wave</option>
+                  <option value="square">Square Wave</option>
+                  <option value="triangle">Triangle Wave</option>
+                  <option value="sawtooth">Sawtooth Wave</option>
+                </select>
+    
+                <div class="button-container">
+                    <button id="startButton">Start Tests</button>
+                    <button id="stopButton">Stop Tests</button>
+                </div>
             </div>
+            <canvas id="achxChart"></canvas>
         </div>
-        <canvas id="achxChart"></canvas>
     </div>
 
     <script src="chart.js"></script>
-
-    <script>
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        let dBResults = {};
-        let current_frequency = 0;
-
-        let mediaStream = null;
-        let analyser = null;
-        let javascriptNode = null;
-
-        let achxChart = null;
-        let frequencies = [];
-        let averages = [];
-
-        let stop = false;
-
-        function generateSound(frequency, duration) {
-            return new Promise((resolve, reject) => {
-                const oscillator = audioContext.createOscillator();
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-
-                oscillator.connect(audioContext.destination);
-
-                oscillator.start();
-                setTimeout(() => {
-                    oscillator.stop();
-                    resolve();
-                }, duration);
-            });
-        }
-
-        function start() {
-            return new Promise((resolve, reject) => {
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                    .then(stream => {
-                        mediaStream = stream;
-                        const audioContext = new AudioContext();
-                        analyser = audioContext.createAnalyser();
-                        const microphone = audioContext.createMediaStreamSource(stream);
-                        javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
-
-                        analyser.smoothingTimeConstant = 0.8;
-                        analyser.fftSize = 1024;
-
-                        microphone.connect(analyser);
-                        analyser.connect(javascriptNode);
-                        javascriptNode.connect(audioContext.destination);
-
-                        javascriptNode.onaudioprocess = function() {
-                            const array = new Uint8Array(analyser.frequencyBinCount);
-                            analyser.getByteFrequencyData(array);
-
-                            let values = 0;
-                            const length = array.length;
-                            for (let i = 0; i < length; i++) {
-                                values += array[i];
-                            }
-
-                            let mean = values / length;
-                            let rms = Math.sqrt(mean);
-                            let db = 20 * Math.log10(rms / 255);
-                            if (current_frequency !== 0) {
-                                dBResults[current_frequency].push(db);
-                            }
-                        }
-                        resolve();
-                    })
-                    .catch(err => {
-                        console.log("The following error occurred: " + err.name)
-                        reject(err);
-                    });
-            });
-        }
-
-        async function playSoundNTimes(all_frequencies, duration) {
-            for (const frequency of all_frequencies) {
-                if (stop) break;
-
-                dBResults[frequency] = [];
-                current_frequency = frequency;
-                await generateSound(frequency, duration);
-
-                let dBs = dBResults[frequency].filter(dB => isFinite(dB));
-                let avg = dBs.reduce((prev, dB) => prev + dB, 0) / dBs.length;
-
-                frequencies.push(frequency);
-                averages.push(avg);
-
-                console.log("Average result for frequency " + frequency + " Hz:", avg);
-                dBResults[frequency] = [];
-                updateACHXChart();
-            }
-        }
-
-        function updateACHXChart() {
-            if (!achxChart) {
-                achxChart = new Chart(document.getElementById('achxChart'), {
-                    type: 'line',
-                    data: {
-                        labels: frequencies.map((freq, index) => freq % 10 === 0 ? freq + ' Hz' : ''),
-                        datasets: [{
-                            label: 'Amplitude-Frequency Response',
-                            data: averages,
-                            borderColor: 'rgb(75, 192, 192)',
-                            borderWidth: 2,
-                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                            pointRadius: 3,
-                            pointBackgroundColor: 'rgba(75, 192, 192, 1)',
-                            pointBorderColor: 'rgba(75, 192, 192, 1)',
-                            pointHoverRadius: 5,
-                            pointHoverBackgroundColor: 'rgba(75, 192, 192, 1)',
-                            pointHoverBorderColor: 'rgba(75, 192, 192, 1)',
-                            tension: 0.6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Amplitude (dB SPL)',
-                                    font: {
-                                        size: 13,
-                                        weight: 'bold'
-                                    }
-                                },
-                                ticks: {
-                                    font: {
-                                        size: 14
-                                    }
-                                }
-                            },
-                            x: {
-                                offset: false,
-                                title: {
-                                    display: true,
-                                    text: 'Frequency (Hz)',
-                                    font: {
-                                        size: 13,
-                                        weight: 'bold'
-                                    }
-                                },
-                                ticks: {
-                                    stepSize: 10,
-                                    font: {
-                                        size: 14
-                                    },
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                labels: {
-                                    font: {
-                                        size: 14
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            } else {
-                achxChart.data.labels = frequencies.map((freq, index) => freq % 10 === 0 ? freq + ' Hz' : '');
-                achxChart.data.datasets[0].data = averages;
-                achxChart.update();
-            }
-        }
-
-        function clearCanvas() {
-            const canvas = document.getElementById('achxChart');
-            const context = canvas.getContext('2d');
-            context.clearRect(0, 0, canvas.width, canvas.height);
-            if (achxChart) {
-                achxChart.destroy();
-            }
-            achxChart = null;
-            frequencies = [];
-            averages = [];
-        }
-
-        function stopAnalysis() {
-            stop = true;
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
-                mediaStream = null;
-            }
-            document.getElementById("saveButton").style.display = "block";
-            document.getElementById("fileName").style.display = "block";
-        }
-
-        async function saveChartAsImage() {
-            if (achxChart) {
-                const canvas = document.getElementById('achxChart');
-                const url = canvas.toDataURL('image/png');
-                const fileName = document.getElementById('fileName').value || 'chart';
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${fileName}.png`;
-                link.click();
-            }
-        }
-
-        document.getElementById("saveButton").addEventListener("click", saveChartAsImage);
-
-        document.getElementById("startButton").addEventListener("click", async () => {
-            stop = false;
-
-            document.getElementById("saveButton").style.display = "none";
-            document.getElementById("fileName").style.display = "none";
-
-            clearCanvas();
-            updateACHXChart();
-
-            const startFrequency = parseInt(document.getElementById("startFrequency").value);
-            const endFrequency = parseInt(document.getElementById("endFrequency").value);
-            const frequencyDuration = parseInt(document.getElementById("frequencyDuration").value);
-            const step = parseInt(document.getElementById("step").value);
-
-            const allFrequencies = [];
-            const frequencyLabels = [];
-            for (let frequency = startFrequency; frequency <= endFrequency; frequency += step) {
-                allFrequencies.push(frequency);
-            }
-
-            await start();
-            console.log(frequencyDuration);
-            await playSoundNTimes(allFrequencies, frequencyDuration);
-
-            stopAnalysis();
-        });
-
-        document.getElementById("stopButton").addEventListener("click", () => {
-            stopAnalysis();
-            updateACHXChart();
-        });
-
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
