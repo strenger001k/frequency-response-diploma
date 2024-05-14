@@ -41,7 +41,7 @@
             margin-bottom: 5px;
         }
 
-        .form-container input[type="number"] {
+        .form-container input {
             width: 100%;
             padding: 10px;
             margin-bottom: 15px;
@@ -49,6 +49,10 @@
             border-radius: 4px;
             box-sizing: border-box;
             font-family: 'Roboto Mono', monospace;
+        }
+
+        #fileName {
+            display: none;
         }
 
         .button-container {
@@ -95,6 +99,7 @@
             <button id="saveButton">
                 Save Chart
             </button>
+            <input type="text" id="fileName" placeholder="Enter file name">
             <label for="startFrequency">Start Frequency (Hz):</label>
             <input type="number" id="startFrequency" value="60">
             <label for="endFrequency">End Frequency (Hz):</label>
@@ -301,15 +306,17 @@
                 mediaStream = null;
             }
             document.getElementById("saveButton").style.display = "block";
+            document.getElementById("fileName").style.display = "block";
         }
 
         async function saveChartAsImage() {
             if (achxChart) {
                 const canvas = document.getElementById('achxChart');
                 const url = canvas.toDataURL('image/png');
+                const fileName = document.getElementById('fileName').value || 'chart';
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = 'chart.png';
+                link.download = `${fileName}.png`;
                 link.click();
             }
         }
@@ -318,7 +325,9 @@
 
         document.getElementById("startButton").addEventListener("click", async () => {
             stop = false;
+
             document.getElementById("saveButton").style.display = "none";
+            document.getElementById("fileName").style.display = "none";
 
             clearCanvas();
             updateACHXChart();
