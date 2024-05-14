@@ -95,12 +95,14 @@
             <button id="saveButton">
                 Save Chart
             </button>
-            <label for="startFrequency">Start Frequency:</label>
-            <input type="number" id="startFrequency" value="500">
-            <label for="endFrequency">End Frequency:</label>
-            <input type="number" id="endFrequency" value="10000">
+            <label for="startFrequency">Start Frequency (Hz):</label>
+            <input type="number" id="startFrequency" value="60">
+            <label for="endFrequency">End Frequency (Hz):</label>
+            <input type="number" id="endFrequency" value="100">
+            <label for="step">Step:</label>
+            <input type="number" id="step" value="1">
             <label for="duration">Duration (ms):</label>
-            <input type="number" id="frequencyDuration" name="duration" value="2000">
+            <input type="number" id="frequencyDuration" name="duration" value="1500">
             <div class="button-container">
                 <button id="startButton">Start Tests</button>
                 <button id="stopButton">Stop Tests</button>
@@ -210,7 +212,7 @@
                 achxChart = new Chart(document.getElementById('achxChart'), {
                     type: 'line',
                     data: {
-                        labels: frequencies.map((freq, index) => index % 10 === 0 ? freq + ' Hz' : ''),
+                        labels: frequencies.map((freq, index) => freq % 10 === 0 ? freq + ' Hz' : ''),
                         datasets: [{
                             label: 'Amplitude-Frequency Response',
                             data: averages,
@@ -223,7 +225,7 @@
                             pointHoverRadius: 5,
                             pointHoverBackgroundColor: 'rgba(75, 192, 192, 1)',
                             pointHoverBorderColor: 'rgba(75, 192, 192, 1)',
-                            tension: 0.1
+                            tension: 0.6
                         }]
                     },
                     options: {
@@ -274,7 +276,7 @@
                     }
                 });
             } else {
-                achxChart.data.labels = frequencies.map((freq, index) => index % 10 === 0 ? freq + ' Hz' : '');
+                achxChart.data.labels = frequencies.map((freq, index) => freq % 10 === 0 ? freq + ' Hz' : '');
                 achxChart.data.datasets[0].data = averages;
                 achxChart.update();
             }
@@ -312,8 +314,14 @@
             }
         }
 
-        function determineStep(frequency, startFrequency) {
-            return 1;
+        function determineStep(step, frequency, startFrequency) {
+            if (frequency <= 100) {
+                return step;
+            } else if (frequency <= 1000 && frequency > 100) {
+                return step * 100;
+            } else if (frequency < 10000 && startFrequency < 10000) {
+                return 1000;
+            }
         }
 
         document.getElementById("saveButton").addEventListener("click", saveChartAsImage);
@@ -325,16 +333,15 @@
             clearCanvas();
             updateACHXChart();
 
-            let step = 0;
             const startFrequency = parseInt(document.getElementById("startFrequency").value);
             const endFrequency = parseInt(document.getElementById("endFrequency").value);
             const frequencyDuration = parseInt(document.getElementById("frequencyDuration").value);
+            const step = parseInt(document.getElementById("step").value);
 
             const allFrequencies = [];
             const frequencyLabels = [];
             for (let frequency = startFrequency; frequency <= endFrequency; frequency += step) {
                 allFrequencies.push(frequency);
-                step = determineStep(frequency, startFrequency);
             }
 
             await start();
