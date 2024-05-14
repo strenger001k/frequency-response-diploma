@@ -314,16 +314,6 @@
             }
         }
 
-        function determineStep(step, frequency, startFrequency) {
-            if (frequency <= 100) {
-                return step;
-            } else if (frequency <= 1000 && frequency > 100) {
-                return step * 100;
-            } else if (frequency < 10000 && startFrequency < 10000) {
-                return 1000;
-            }
-        }
-
         document.getElementById("saveButton").addEventListener("click", saveChartAsImage);
 
         document.getElementById("startButton").addEventListener("click", async () => {
