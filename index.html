@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Frequency Response</title>
+</head>
+<body>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
+
+        body {
+            font-family: 'Roboto Mono', monospace;
+            margin: 0;
+            padding: 0;
+        }
+
+        #chartContainer {
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        #chartContainer canvas {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .form-container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        .form-container label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-container input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .button-container {
+            text-align: center;
+        }
+
+        .button-container button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            background-color: rgba(75, 192, 192, 1);
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin: 0 10px;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .button-container button:hover {
+            background-color: rgba(75, 192, 192, 0.8);
+        }
+
+        #saveButton {
+            display: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            background-color: rgba(75, 192, 192, 1);
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-bottom: 20px;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        #saveButton:hover {
+            background-color: rgba(75, 192, 192, 0.8);
+        }     
+    </style>
+    <div id="chartContainer">
+        <div class="form-container">
+            <button id="saveButton">
+                Save Chart
+            </button>
+            <label for="startFrequency">Start Frequency:</label>
+            <input type="number" id="startFrequency" value="500">
+            <label for="endFrequency">End Frequency:</label>
+            <input type="number" id="endFrequency" value="10000">
+            <label for="duration">Duration (ms):</label>
+            <input type="number" id="frequencyDuration" value="2000">
+            <div class="button-container">
+                <button id="startButton">Start Tests</button>
+                <button id="stopButton">Stop Tests</button>
+            </div>
+        </div>
+        <canvas id="achxChart"></canvas>
+    </div>
+
+    <script>
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let dBResults = {};
+        let current_frequency = 0;
+
+        let mediaStream = null;
+        let analyser = null;
+        let javascriptNode = null;
+
+        let achxChart = null;
+        let frequencies = [];
+        let averages = [];
+
+        let stop = false;
+
+        function generateSound(frequency, duration) {
+            return new Promise((resolve, reject) => {
+                const oscillator = audioContext.createOscillator();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+                oscillator.connect(audioContext.destination);
+
+                oscillator.start();
+                setTimeout(() => {
+                    oscillator.stop();
+                    resolve();
+                }, duration);
+            });
+        }
+
+        function start() {
+            return new Promise((resolve, reject) => {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        mediaStream = stream;
+                        const audioContext = new AudioContext();
+                        analyser = audioContext.createAnalyser();
+                        const microphone = audioContext.createMediaStreamSource(stream);
+                        javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+
+                        analyser.smoothingTimeConstant = 0.8;
+                        analyser.fftSize = 1024;
+
+                        microphone.connect(analyser);
+                        analyser.connect(javascriptNode);
+                        javascriptNode.connect(audioContext.destination);
+
+                        javascriptNode.onaudioprocess = function() {
+                            const array = new Uint8Array(analyser.frequencyBinCount);
+                            analyser.getByteFrequencyData(array);
+
+                            let values = 0;
+                            const length = array.length;
+                            for (let i = 0; i < length; i++) {
+                                values += array[i];
+                            }
+
+                            let mean = values / length;
+                            let rms = Math.sqrt(mean);
+                            let db = 20 * Math.log10(rms / 255);
+                            if (current_frequency !== 0) {
+                                dBResults[current_frequency].push(db);
+                            }
+                        }
+                        resolve();
+                    })
+                    .catch(err => {
+                        console.log("The following error occurred: " + err.name)
+                        reject(err);
+                    });
+            });
+        }
+
+        async function playSoundNTimes(all_frequencies, duration) {
+            for (const frequency of all_frequencies) {
+                if (stop) break;
+
+                dBResults[frequency] = [];
+                current_frequency = frequency;
+                await generateSound(frequency, duration);
+
+                let dBs = dBResults[frequency].filter(dB => isFinite(dB));
+                let avg = dBs.reduce((prev, dB) => prev + dB, 0) / dBs.length;
+
+                frequencies.push(frequency);
+                averages.push(avg);
+
+                console.log("Average result for frequency " + frequency + " Hz:", avg);
+                dBResults[frequency] = [];
+                updateACHXChart();
+            }
+        }
+
+        function updateACHXChart() {
+            if (!achxChart) {
+                achxChart = new Chart(document.getElementById('achxChart'), {
+                    type: 'line',
+                    data: {
+                        labels: frequencies.map((freq, index) => index % 10 === 0 ? freq + ' Hz' : ''),
+                        datasets: [{
+                            label: 'Amplitude-Frequency Response',
+                            data: averages,
+                            borderColor: 'rgb(75, 192, 192)',
+                            borderWidth: 2,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            pointRadius: 3,
+                            pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                            pointBorderColor: 'rgba(75, 192, 192, 1)',
+                            pointHoverRadius: 5,
+                            pointHoverBackgroundColor: 'rgba(75, 192, 192, 1)',
+                            pointHoverBorderColor: 'rgba(75, 192, 192, 1)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Amplitude (dB SPL)',
+                                    font: {
+                                        size: 13,
+                                        weight: 'bold'
+                                    }
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 14
+                                    }
+                                }
+                            },
+                            x: {
+                                offset: false,
+                                title: {
+                                    display: true,
+                                    text: 'Frequency (Hz)',
+                                    font: {
+                                        size: 13,
+                                        weight: 'bold'
+                                    }
+                                },
+                                ticks: {
+                                    stepSize: 10,
+                                    font: {
+                                        size: 14
+                                    },
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    font: {
+                                        size: 14
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } else {
+                achxChart.data.labels = frequencies.map((freq, index) => index % 10 === 0 ? freq + ' Hz' : '');
+                achxChart.data.datasets[0].data = averages;
+                achxChart.update();
+            }
+        }
+
+        function clearCanvas() {
+            const canvas = document.getElementById('achxChart');
+            const context = canvas.getContext('2d');
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            if (achxChart) {
+                achxChart.destroy();
+            }
+            achxChart = null;
+            frequencies = [];
+            averages = [];
+        }
+
+        function stopAnalysis() {
+            stop = true;
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            document.getElementById("saveButton").style.display = "block";
+        }
+
+        async function saveChartAsImage() {
+            if (achxChart) {
+                const canvas = document.getElementById('achxChart');
+                const url = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'chart.png';
+                link.click();
+            }
+        }
+
+        function determineStep(frequency, startFrequency) {
+            return 1;
+        }
+
+        document.getElementById("saveButton").addEventListener("click", saveChartAsImage);
+
+        document.getElementById("startButton").addEventListener("click", async () => {
+            stop = false;
+            document.getElementById("saveButton").style.display = "none";
+
+            clearCanvas();
+            updateACHXChart();
+
+            let step = 0;
+            const startFrequency = parseInt(document.getElementById("startFrequency").value);
+            const endFrequency = parseInt(document.getElementById("endFrequency").value);
+            const frequencyDuration = parseInt(document.getElementById("frequencyDuration").value);
+
+            const allFrequencies = [];
+            const frequencyLabels = [];
+            for (let frequency = startFrequency; frequency <= endFrequency; frequency += step) {
+                allFrequencies.push(frequency);
+                step = determineStep(frequency, startFrequency);
+            }
+
+            await start();
+            console.log(frequencyDuration);
+            await playSoundNTimes(allFrequencies, frequencyDuration);
+
+            stopAnalysis();
+        });
+
+        document.getElementById("stopButton").addEventListener("click", () => {
+            stopAnalysis();
+            updateACHXChart();
+        });
+
+    </script>
+</body>
+</html>
