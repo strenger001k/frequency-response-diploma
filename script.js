@@ -114,14 +114,14 @@ async function playSoundNTimes(all_frequencies, duration) {
 }
 
 function updateACHXChart() {
+    let data = frequencies.map((freq, index) => ({ x: freq, y: averages[index] }));
     if (!achxChart) {
         achxChart = new Chart(document.getElementById('achxChart'), {
             type: 'line',
             data: {
-                labels: frequencies.map((freq, index) => freq % 10 === 0 ? freq + ' Hz' : ''),
                 datasets: [{
                     label: 'Amplitude-Frequency Response',
-                    data: averages,
+                    data: data,
                     borderColor: 'rgb(75, 192, 192)',
                     borderWidth: 2,
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -153,21 +153,28 @@ function updateACHXChart() {
                         }
                     },
                     x: {
-                        offset: false,
+                        type: 'logarithmic',
+                        ticks: {
+                            font: {
+                                size: 14
+                            },
+                            callback: function(tick) {
+                                const remain = tick / (Math.pow(10, Math.floor(Math.log10(tick))));
+                                if (remain === 1 || remain === 2 || remain === 5) {
+                                  return tick.toString() + 'Hz';
+                                }
+                                return '';
+                              },
+                              maxRotation: 0
+                        },
                         title: {
                             display: true,
-                            text: 'Frequency (Hz)',
+                            text: 'Frequency',
                             font: {
                                 size: 13,
                                 weight: 'bold'
                             }
                         },
-                        ticks: {
-                            stepSize: 10,
-                            font: {
-                                size: 14
-                            },
-                        }
                     }
                 },
                 plugins: {
@@ -182,8 +189,7 @@ function updateACHXChart() {
             }
         });
     } else {
-        achxChart.data.labels = frequencies.map((freq, index) => freq % 10 === 0 ? freq + ' Hz' : '');
-        achxChart.data.datasets[0].data = averages;
+        achxChart.data.datasets[0].data = data;
         achxChart.update();
     }
 }
@@ -236,16 +242,17 @@ document.getElementById("startButton").addEventListener("click", async () => {
     const startFrequency = parseInt(document.getElementById("startFrequency").value);
     const endFrequency = parseInt(document.getElementById("endFrequency").value);
     const frequencyDuration = parseInt(document.getElementById("frequencyDuration").value);
-    const step = parseInt(document.getElementById("step").value);
+    const numPoints = parseInt(document.getElementById("numPointsInput").value);
 
     const allFrequencies = [];
-    const frequencyLabels = [];
-    for (let frequency = startFrequency; frequency <= endFrequency; frequency += step) {
-        allFrequencies.push(frequency);
+    const ratio = Math.pow(endFrequency / startFrequency, 1 / (numPoints - 1));
+    let currentValue = startFrequency;
+    for (let i = 0; i < numPoints; i++) {
+        allFrequencies.push(currentValue);
+        currentValue *= ratio;
     }
 
     await start();
-    console.log(frequencyDuration);
     await playSoundNTimes(allFrequencies, frequencyDuration);
 
     stopAnalysis();
