@@ -96,6 +96,12 @@ body {
     background-color: rgba(75, 192, 192, 0.8);
 }
 
+@media screen and (max-width: 600px) {
+    .button-container button {
+        margin: 5px;
+    }
+}
+
 select {
     width: 100%;
     margin: 0px 0px 15px;
